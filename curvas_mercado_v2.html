@@ -1,0 +1,2077 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curvas de Mercado — Bonos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #000000;
+      --panel:   #080808;
+      --border:  #1c1c1c;
+      --border2: #2a2a2a;
+      --txt1:    #ffffff;
+      --txt2:    #999999;
+      --txt3:    #444444;
+      --blue:    #1a4cc8;
+      --pink:    #e32d91;
+      --purple:  #7030a0;
+      --navy:    #000099;
+      --blue2:   #1155cc;
+      /* UI hardcoded → variable */
+      --panel2:     #0a0a0a;
+      --row-border: #0f0f0f;
+      --row-hover:  #111111;
+      --q-head-bg:  #050505;
+      --empty-bg:   #030303;
+      --empty-text: #1e1e1e;
+      --error-bg:   #100008;
+      --tip-bg:     #111111;
+      /* Canvas */
+      --c-bg:      #000000;
+      --c-grid:    #181818;
+      --c-axis:    #2a2a2a;
+      --c-lbl:     #666666;
+      --c-dot-lbl: #cccccc;
+      --c-bar-lbl: #dddddd;
+      --c-xlbl:    #888888;
+      --c-zero:    #3a3a3a;
+      --c-hollow:  #000000;
+      --c-nodata:  #444444;
+    }
+
+    [data-theme="light"] {
+      --bg:      #ffffff;
+      --panel:   #f4f4f4;
+      --border:  #e0e0e0;
+      --border2: #cccccc;
+      --txt1:    #111111;
+      --txt2:    #555555;
+      --txt3:    #aaaaaa;
+      --panel2:     #ebebeb;
+      --row-border: #eeeeee;
+      --row-hover:  #e8e8e8;
+      --q-head-bg:  #f0f0f0;
+      --empty-bg:   #f8f8f8;
+      --empty-text: #cccccc;
+      --error-bg:   #fff0f5;
+      --tip-bg:     #ffffff;
+      --c-bg:      #ffffff;
+      --c-grid:    #eeeeee;
+      --c-axis:    #cccccc;
+      --c-lbl:     #666666;
+      --c-dot-lbl: #333333;
+      --c-bar-lbl: #333333;
+      --c-xlbl:    #666666;
+      --c-zero:    #aaaaaa;
+      --c-hollow:  #ffffff;
+      --c-nodata:  #999999;
+    }
+
+    [data-theme="light"] .btn.on-TEM { background: #ffe0f0; }
+    [data-theme="light"] .btn.on-TNA { background: #e0eaff; }
+    [data-theme="light"] .btn.on-CER { background: #f0e0ff; }
+    [data-theme="light"] .btn.on-USD { background: #e0e0ff; }
+
+    body {
+      background: var(--bg); color: var(--txt1);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+    body::-webkit-scrollbar { width: 10px; }
+    body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 5px; }
+    body::-webkit-scrollbar-track { background: var(--bg); }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+      background: var(--bg); position: sticky; top: 0; z-index: 30;
+    }
+    .logo-wrap { display: flex; align-items: center; gap: 16px; }
+    .logo-svg { height: 36px; width: auto; }
+    .hdr-divider { width: 1px; height: 28px; background: var(--border2); }
+    .subtitle { font-size: 11px; color: var(--txt2); }
+    .hdr-right { display: flex; align-items: center; gap: 12px; }
+    .last-update { font-size: 11px; color: var(--txt3); }
+    .refresh-btn {
+      display: flex; align-items: center; gap: 5px; padding: 5px 11px;
+      border-radius: 4px; border: 1px solid var(--border2); background: var(--panel);
+      color: var(--txt2); font-size: 12px; cursor: pointer; transition: all .15s;
+    }
+    .refresh-btn:hover { border-color: var(--blue); color: var(--txt1); }
+    .refresh-btn:disabled { opacity: .4; cursor: not-allowed; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .refresh-btn.spinning .ri { display: inline-block; animation: spin .7s linear infinite; }
+
+    .layout { display: block; }
+
+    .panel-head { padding: 10px 10px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .panel-title {
+      font-size: 10px; font-weight: 700; color: var(--txt3);
+      text-transform: uppercase; letter-spacing: .08em; margin-bottom: 7px;
+    }
+
+    .legend { display: flex; gap: 6px; margin-bottom: 7px; flex-wrap: wrap; }
+    .legend-chip {
+      display: flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 600;
+      border: 1px solid; cursor: pointer; user-select: none; transition: opacity .15s;
+    }
+    .legend-chip.off { opacity: .3; }
+    .legend-chip .chip-circle { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid; }
+
+    .panel-actions { display: flex; gap: 4px; margin-bottom: 7px; }
+    .small-btn {
+      flex: 1; padding: 4px 0; border-radius: 3px; font-size: 11px;
+      border: 1px solid var(--border2); background: var(--bg); color: var(--txt2); cursor: pointer;
+      transition: all .12s;
+    }
+    .small-btn:hover { border-color: var(--blue); color: var(--txt1); }
+    .bond-search {
+      width: 100%; padding: 5px 7px; border-radius: 3px;
+      border: 1px solid var(--border2); background: var(--bg);
+      color: var(--txt1); font-size: 11px; outline: none;
+    }
+    .bond-search::placeholder { color: var(--txt3); }
+    .bond-search:focus { border-color: var(--blue); }
+
+    .tbl-head {
+      display: flex; align-items: center; padding: 5px 10px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--panel2);
+      font-size: 10px; font-weight: 700; color: var(--txt3);
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .th-chk  { width: 20px; flex-shrink: 0; }
+    .th-src  { width: 26px; flex-shrink: 0; }
+    .th-bond { flex: 1; }
+    .th-mcd  { width: 44px; flex-shrink: 0; text-align: right; }
+    .th-met  { width: 50px; flex-shrink: 0; text-align: right; padding-right: 2px; }
+
+    .bond-list { flex: 1; overflow-y: auto; }
+    .bond-list::-webkit-scrollbar { width: 4px; }
+    .bond-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .bond-row {
+      display: flex; align-items: center; padding: 4px 10px;
+      font-size: 11px; cursor: pointer; border-bottom: 1px solid var(--row-border);
+      transition: background .1s;
+    }
+    .bond-row:hover { background: var(--row-hover); }
+    .bond-row.active  { color: var(--txt1); }
+    .bond-row.inactive { color: var(--txt3); }
+    .bond-row input[type=checkbox] { width: 20px; flex-shrink: 0; accent-color: var(--blue); cursor: pointer; }
+    .src-badge {
+      width: 26px; flex-shrink: 0; font-size: 9px; font-weight: 700;
+      text-align: center; padding: 1px 3px; border-radius: 2px; letter-spacing: .02em;
+    }
+    .bond-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bond-mcd  { width: 44px; flex-shrink: 0; text-align: right; color: var(--txt2); font-variant-numeric: tabular-nums; }
+    .bond-met  { width: 50px; flex-shrink: 0; text-align: right; padding-right: 2px; font-variant-numeric: tabular-nums; }
+
+    .bond-count { padding: 5px 10px; font-size: 10px; color: var(--txt3); border-top: 1px solid var(--border); flex-shrink: 0; }
+
+    /* ── Quad grid ── */
+    .quad-grid {
+      display: grid;
+      grid-template-columns: 210px 1fr 1fr;
+      grid-template-rows: repeat(3, minmax(420px, 1fr));
+      gap: 1px; background: var(--border);
+      min-height: calc(100vh - 58px);
+    }
+    .quadrant {
+      background: var(--bg); display: flex; flex-direction: column;
+      overflow: hidden; position: relative; min-height: 0;
+    }
+    .q-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0; flex-wrap: wrap; background: var(--q-head-bg);
+    }
+    .q-title {
+      font-size: 10px; font-weight: 700; color: var(--txt3);
+      text-transform: uppercase; letter-spacing: .07em; margin-right: 2px; white-space: nowrap;
+    }
+    .q-divider { width: 1px; height: 14px; background: var(--border2); flex-shrink: 0; }
+    .q-empty { align-items: center; justify-content: center; background: var(--empty-bg); }
+    .q-empty-text { font-size: 11px; color: var(--empty-text); letter-spacing: .05em; text-transform: uppercase; }
+    .fwds-select {
+      padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;
+      border: 1px solid var(--border2); background: var(--panel);
+      color: var(--txt1); cursor: pointer; outline: none;
+    }
+    .fwds-select:focus { border-color: var(--pink); }
+    .hist-cat  { max-width: 130px; }
+    .hist-date { max-width: 118px; font-variant-numeric: tabular-nums; }
+    .hist-date.d1:focus { border-color: var(--pink); }
+    .hist-date.d2:focus { border-color: var(--blue); }
+
+    .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .btn-group { display: flex; gap: 4px; }
+    .btn {
+      padding: 5px 13px; border-radius: 3px; border: 1px solid var(--border2);
+      background: var(--panel); color: var(--txt2); font-size: 12px;
+      font-weight: 500; cursor: pointer; transition: all .12s;
+    }
+    .btn:hover { border-color: var(--blue); color: var(--txt1); }
+    .btn.on-TEM { background:#3a0820; border-color:var(--pink);   color:var(--pink);   }
+    .btn.on-TNA { background:#0d1e4a; border-color:var(--blue);   color:var(--blue);   }
+    .btn.on-CER { background:#200a2e; border-color:var(--purple); color:var(--purple); }
+    .btn.on-USD { background:#00003a; border-color:var(--navy);   color:#4466cc;       }
+
+    .right-opts { display: flex; align-items: center; gap: 12px; }
+    .tog-label { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--txt2); cursor: pointer; user-select: none; }
+    .tog-label input { accent-color: var(--blue); cursor: pointer; }
+
+    .axis-bar { display: flex; align-items: center; gap: 14px; flex-shrink: 0; flex-wrap: wrap; }
+    .axis-group { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--txt2); }
+    .axis-lbl { font-size: 10px; font-weight: 700; color: var(--txt3); text-transform: uppercase; letter-spacing: .05em; }
+    .axis-input {
+      width: 58px; padding: 3px 6px; border-radius: 3px;
+      border: 1px solid var(--border2); background: var(--panel);
+      color: var(--txt1); font-size: 11px; text-align: center; outline: none;
+    }
+    .axis-input:focus { border-color: var(--blue); }
+    .axis-sep { color: var(--txt3); font-size: 10px; }
+    .reset-axes {
+      padding: 3px 9px; border-radius: 3px; font-size: 11px;
+      border: 1px solid var(--border2); background: var(--panel); color: var(--txt2); cursor: pointer;
+      transition: all .12s;
+    }
+    .reset-axes:hover { border-color: var(--pink); color: var(--txt1); }
+
+    .canvas-wrap { flex: 1; position: relative; min-height: 0; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: var(--bg); z-index: 10; }
+    .overlay.hidden { display: none; }
+    .spinner { width: 22px; height: 22px; border: 2px solid var(--border2); border-top-color: var(--blue); border-radius: 50%; animation: spin .75s linear infinite; }
+    .overlay-text { font-size: 13px; color: var(--txt2); }
+    .error-box { background: var(--error-bg); border: 1px solid var(--pink); border-radius: 4px; padding: 14px 18px; color: var(--pink); font-size: 12px; max-width: 360px; text-align: center; line-height: 1.7; }
+
+    .filter-btn {
+      padding: 3px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;
+      border: 1px solid var(--border2); background: var(--panel);
+      color: var(--txt2); cursor: pointer; outline: none; display: flex; align-items: center; gap: 4px;
+    }
+    .filter-btn:hover { border-color: var(--blue); color: var(--txt1); }
+    .filter-btn.active { border-color: var(--blue); color: var(--blue); background: var(--bg); }
+    .filter-panel {
+      position: absolute; top: 36px; right: 10px; z-index: 50;
+      background: var(--panel); border: 1px solid var(--border2); border-radius: 5px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.45); padding: 8px 0; min-width: 160px; max-width: 200px;
+    }
+    .filter-panel.hidden { display: none; }
+    .filter-panel-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 10px 6px; border-bottom: 1px solid var(--border2); margin-bottom: 4px;
+    }
+    .filter-panel-head span { font-size: 10px; font-weight: 700; color: var(--txt3); text-transform: uppercase; letter-spacing: .06em; }
+    .filter-panel-actions { display: flex; gap: 6px; }
+    .filter-panel-actions button {
+      font-size: 10px; padding: 1px 6px; border-radius: 3px; cursor: pointer;
+      border: 1px solid var(--border2); background: var(--bg); color: var(--txt2);
+    }
+    .filter-panel-actions button:hover { color: var(--txt1); border-color: var(--blue); }
+    .filter-list { max-height: 220px; overflow-y: auto; padding: 0 4px; }
+    .filter-item {
+      display: flex; align-items: center; gap: 7px; padding: 3px 6px;
+      font-size: 11px; color: var(--txt1); cursor: pointer; border-radius: 3px;
+    }
+    .filter-item:hover { background: var(--border2); }
+    .filter-item input { accent-color: var(--blue); cursor: pointer; flex-shrink: 0; }
+
+    #tip { position: fixed; pointer-events: none; z-index: 200; background: var(--tip-bg); border: 1px solid var(--border2); border-radius: 4px; padding: 7px 10px; font-size: 11px; color: var(--txt1); display: none; line-height: 1.6; }
+
+    .theme-btn {
+      display: flex; align-items: center; padding: 5px 9px;
+      border-radius: 4px; border: 1px solid var(--border2); background: var(--panel);
+      color: var(--txt2); font-size: 15px; cursor: pointer; transition: all .15s; line-height: 1;
+    }
+    .theme-btn:hover { border-color: var(--blue); color: var(--txt1); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <!-- Logo one618 Asset Management -->
+    <svg class="logo-svg" viewBox="0 0 210 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="30" font-family="'Montserrat',sans-serif"
+            font-size="31" font-weight="700" fill="currentColor" letter-spacing="-0.5">one618</text>
+      <text x="1" y="41" font-family="'Montserrat',sans-serif"
+            font-size="8" font-weight="400" fill="#999999" letter-spacing="3.5">ASSET MANAGEMENT</text>
+    </svg>
+    <div class="hdr-divider"></div>
+    <div class="subtitle" id="subtitle">Cargando…</div>
+  </div>
+  <div class="hdr-right">
+    <span class="last-update" id="lastUpdate"></span>
+    <span class="last-update" id="autoRefreshTimer" style="color:#388bfd88"></span>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Modo claro/oscuro">☀</button>
+    <button class="refresh-btn" id="refreshBtn" onclick="loadData(); loadFwds(); loadBE(); loadTR();">
+      <span class="ri">↻</span> Actualizar
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <div class="quad-grid">
+
+    <!-- Q1: Panel de bonos ──────────────────────── -->
+    <div class="quadrant" style="background:var(--panel); grid-row: 1 / 4;">
+      <div class="panel-head">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <div class="panel-title" style="margin-bottom:0;">Selección de bonos</div>
+          <div class="panel-actions" style="margin-bottom:0; gap:4px;">
+            <button class="small-btn" onclick="setAll(true)">Todos</button>
+            <button class="small-btn" onclick="setAll(false)">Ninguno</button>
+          </div>
+        </div>
+        <div class="legend" id="legend"></div>
+        <input class="bond-search" id="bondSearch" type="text" placeholder="Buscar…" oninput="renderList()">
+      </div>
+      <div class="tbl-head">
+        <div class="th-chk"></div>
+        <div class="th-src"></div>
+        <div class="th-bond">Bono</div>
+        <div class="th-mcd">McD</div>
+        <div class="th-met" id="thMetric">TEM%</div>
+      </div>
+      <div class="bond-list" id="bondList"></div>
+      <div class="bond-count" id="bondCount"></div>
+    </div>
+
+    <!-- Q2: Curvas de Rendimiento ──────────────── -->
+    <div class="quadrant">
+      <div class="q-head">
+        <span class="q-title">Curvas</span>
+        <div class="q-divider"></div>
+        <div class="controls">
+          <div class="btn-group">
+            <button class="btn on-TEM" id="btn-TEM" onclick="switchMetric('TEM')">TEM</button>
+            <button class="btn" id="btn-TNA" onclick="switchMetric('TNA')">TNA</button>
+            <button class="btn" id="btn-CER" onclick="switchMetric('CER')">CER</button>
+            <button class="btn" id="btn-USD" onclick="switchMetric('USD')">USD</button>
+          </div>
+          <label class="tog-label"><input type="checkbox" id="chkLabels" checked onchange="redraw()"> Etiquetas</label>
+          <label class="tog-label"><input type="checkbox" id="chkCurve"  checked onchange="redraw()"> Curva</label>
+        </div>
+      </div>
+      <div class="axis-bar" style="padding:4px 10px; border-bottom:1px solid var(--border);">
+        <div class="axis-group">
+          <span class="axis-lbl">X</span>
+          <input class="axis-input" id="axXlo" type="number" step="any" onchange="onAxisChange()">
+          <span class="axis-sep">—</span>
+          <input class="axis-input" id="axXhi" type="number" step="any" onchange="onAxisChange()">
+        </div>
+        <div class="axis-group">
+          <span class="axis-lbl">Y</span>
+          <input class="axis-input" id="axYlo" type="number" step="any" onchange="onAxisChange()">
+          <span class="axis-sep">—</span>
+          <input class="axis-input" id="axYhi" type="number" step="any" onchange="onAxisChange()">
+        </div>
+        <button class="reset-axes" onclick="resetAxes()">↺</button>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="c"></canvas>
+        <div class="overlay" id="overlay">
+          <div class="spinner"></div>
+          <div class="overlay-text">Cargando desde Google Sheets…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q3: Forwards ───────────────────────────── -->
+    <div class="quadrant">
+      <div class="q-head">
+        <span class="q-title">Forwards</span>
+        <div class="q-divider"></div>
+        <select class="fwds-select" id="fwdsSelect" onchange="switchFwds(this.value)">
+          <option>Cargando…</option>
+        </select>
+        <label class="tog-label"><input type="checkbox" id="chkLabels3" checked onchange="redrawFwds()"> Etiquetas</label>
+        <label class="tog-label"><input type="checkbox" id="chkCurve3"  checked onchange="redrawFwds()"> Curva</label>
+      </div>
+      <div class="canvas-wrap" id="q3wrap">
+        <canvas id="c3"></canvas>
+        <div class="overlay" id="overlayQ3">
+          <div class="spinner"></div>
+          <div class="overlay-text">Cargando Forwards…</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Q4: Inflación BreakEven ─────────────────── -->
+    <div class="quadrant">
+      <div class="q-head">
+        <span class="q-title">Inflación BreakEven</span>
+        <div class="q-divider"></div>
+        <label class="tog-label"><input type="checkbox" id="chkLabelsBE" checked onchange="redrawBE()"> Etiquetas</label>
+      </div>
+      <div class="canvas-wrap" id="q4wrap">
+        <canvas id="c4"></canvas>
+        <div class="overlay" id="overlayQ4">
+          <div class="spinner"></div>
+          <div class="overlay-text">Cargando BreakEven…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q5: Tasa Real BE ────────────────────────── -->
+    <div class="quadrant">
+      <div class="q-head">
+        <span class="q-title">Tasa Real BE</span>
+        <div class="q-divider"></div>
+        <label class="tog-label"><input type="checkbox" id="chkLabelsTR" checked onchange="redrawTR()"> Etiquetas</label>
+      </div>
+      <div class="canvas-wrap" id="q5wrap">
+        <canvas id="c5"></canvas>
+        <div class="overlay" id="overlayQ5">
+          <div class="spinner"></div>
+          <div class="overlay-text">Cargando Tasa Real…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q6: Comparador de curvas por fecha — A ──────── -->
+    <div class="quadrant" style="grid-column: 2; grid-row: 3;">
+      <div class="q-head">
+        <span class="q-title">Curvas · Comparador A</span>
+        <div class="q-divider"></div>
+        <select class="fwds-select hist-cat" id="catA" onchange="onHistCat('A')"></select>
+        <div class="q-divider"></div>
+        <span class="axis-lbl">Fechas</span>
+        <select class="fwds-select hist-date" id="dateA1" onchange="onHistDate('A')"></select>
+        <select class="fwds-select hist-date" id="dateA2" onchange="onHistDate('A')"></select>
+        <label class="tog-label"><input type="checkbox" id="chkLabelsA" checked onchange="redrawHist('A')"> Etiquetas</label>
+        <label class="tog-label"><input type="checkbox" id="chkCurveA" checked onchange="redrawHist('A')"> Curva</label>
+      </div>
+      <div class="axis-bar" style="padding:3px 10px; border-bottom:1px solid var(--border);">
+        <div class="axis-group"><span class="axis-lbl">X</span>
+          <input class="axis-input" id="axAxlo" type="number" step="any" onchange="onHistAxis('A')">
+          <span class="axis-sep">—</span>
+          <input class="axis-input" id="axAxhi" type="number" step="any" onchange="onHistAxis('A')"></div>
+        <div class="axis-group"><span class="axis-lbl">Y</span>
+          <input class="axis-input" id="axAylo" type="number" step="any" onchange="onHistAxis('A')">
+          <span class="axis-sep">—</span>
+          <input class="axis-input" id="axAyhi" type="number" step="any" onchange="onHistAxis('A')"></div>
+        <button class="reset-axes" onclick="resetHistPanel('A')" title="Restablecer ejes y bonos excluidos">↺</button>
+      </div>
+      <div class="canvas-wrap" id="qAwrap">
+        <canvas id="cA"></canvas>
+        <div class="overlay" id="overlayA">
+          <div class="spinner"></div>
+          <div class="overlay-text">Cargando histórico…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q7: Comparador de curvas por fecha — B ──────── -->
+    <div class="quadrant" style="grid-column: 3; grid-row: 3;">
+      <div class="q-head">
+        <span class="q-title">Curvas · Comparador B</span>
+        <div class="q-divider"></div>
+        <select class="fwds-select hist-cat" id="catB" onchange="onHistCat('B')"></select>
+        <div class="q-divider"></div>
+        <span class="axis-lbl">Fechas</span>
+        <select class="fwds-select hist-date" id="dateB1" onchange="onHistDate('B')"></select>
+        <select class="fwds-select hist-date" id="dateB2" onchange="onHistDate('B')"></select>
+        <label class="tog-label"><input type="checkbox" id="chkLabelsB" checked onchange="redrawHist('B')"> Etiquetas</label>
+        <label class="tog-label"><input type="checkbox" id="chkCurveB" checked onchange="redrawHist('B')"> Curva</label>
+      </div>
+      <div class="axis-bar" style="padding:3px 10px; border-bottom:1px solid var(--border);">
+        <div class="axis-group"><span class="axis-lbl">X</span>
+          <input class="axis-input" id="axBxlo" type="number" step="any" onchange="onHistAxis('B')">
+          <span class="axis-sep">—</span>
+          <input class="axis-input" id="axBxhi" type="number" step="any" onchange="onHistAxis('B')"></div>
+        <div class="axis-group"><span class="axis-lbl">Y</span>
+          <input class="axis-input" id="axBylo" type="number" step="any" onchange="onHistAxis('B')">
+          <span class="axis-sep">—</span>
+          <input class="axis-input" id="axByhi" type="number" step="any" onchange="onHistAxis('B')"></div>
+        <button class="reset-axes" onclick="resetHistPanel('B')" title="Restablecer ejes y bonos excluidos">↺</button>
+      </div>
+      <div class="canvas-wrap" id="qBwrap">
+        <canvas id="cB"></canvas>
+        <div class="overlay" id="overlayB">
+          <div class="spinner"></div>
+          <div class="overlay-text">Cargando histórico…</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONFIG — editá aquí para agregar/modificar sheets
+// ══════════════════════════════════════════════════════
+const SHEETS = [
+  {
+    id:    '1mtd9Dh5brapXTRqhEsup51hISI3rYMHq3cKBJjM5bok',
+    name:  'Curvas',          // nombre de la pestaña
+    range: 'A5:G54',          // rango de datos (incluye fila de encabezado)
+    label: 'Curva 1',         // nombre que aparece en la leyenda
+    // Índices de columna (0 = primera columna del rango):
+    cols: { bond: 1, McD: 2, TEM: 3, TNA: 4, CER: 5, USD: 6 },
+    // Función que decide si una fila es dato válido (no encabezado):
+    isData: (c, num) => c[1] && c[1].v && String(c[1].v).trim() !== 'Activo' && num(c, 2) !== null,
+  },
+  {
+    id:    'REEMPLAZAR_CON_ID_DEL_SEGUNDO_SHEET',  // ← pegar ID del segundo sheet
+    name:  'Curvas',          // ← ajustar nombre de pestaña
+    range: 'A5:G54',          // ← ajustar rango si es diferente
+    label: 'Curva 2',
+    cols: { bond: 1, McD: 2, TEM: 3, TNA: 4, CER: 5, USD: 6 },  // ← ajustar si las columnas difieren
+    isData: (c, num) => c[1] && c[1].v && String(c[1].v).trim() !== 'Activo' && num(c, 2) !== null,
+  },
+];
+
+// Estilos por serie — el COLOR viene de COL[currentM], aquí solo se define forma/línea
+const SERIES_STYLE = [
+  { dash: [],    hollow: false, label: SHEETS[0].label },
+  { dash: [6,3], hollow: true,  label: SHEETS[1].label },
+];
+
+// ══════════════════════════════════════════════════════
+
+// ── Theme ──────────────────────────────────────────────
+function themeC() {
+  const lt = document.documentElement.getAttribute('data-theme') === 'light';
+  return {
+    bg:      lt ? '#ffffff' : '#000000',
+    grid:    lt ? '#eeeeee' : '#181818',
+    axis:    lt ? '#cccccc' : '#2a2a2a',
+    lbl:     lt ? '#666666' : '#666666',
+    dotLbl:  lt ? '#333333' : '#cccccc',
+    barLbl:  lt ? '#333333' : '#dddddd',
+    xlbl:    lt ? '#666666' : '#888888',
+    zero:    lt ? '#aaaaaa' : '#3a3a3a',
+    hollow:  lt ? '#ffffff' : '#000000',
+    nodata:  lt ? '#999999' : '#444444',
+  };
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const isLight = html.getAttribute('data-theme') === 'light';
+  html.setAttribute('data-theme', isLight ? '' : 'light');
+  document.getElementById('themeBtn').textContent = isLight ? '☀' : '🌙';
+  redraw(); redrawFwds(); redrawBE(); redrawTR();
+}
+
+const METRICS = ['TEM','TNA','CER','USD'];
+const COL = {
+  TEM: '#e32d91', TNA: '#1a4cc8', CER: '#7030a0', USD: '#1155cc',
+};
+const YLBL = { TEM:'TEM (%)', TNA:'TNA (%)', CER:'CER (%)', USD:'USD (%)' };
+
+// ── State ──────────────────────────────────────────────
+let allData      = [];   // { bond, McD, TEM, TNA, CER, USD, src }
+let selected     = {};   // key = `src:bond`
+let seriesOn     = SHEETS.map(() => true);  // visibility per series
+let currentM     = 'TEM';
+let hoverKey     = null; // `src:idx`
+let lastPts      = [];
+let axisOverride = { xLo: null, xHi: null, yLo: null, yHi: null };
+const PAD = { top: 26, right: 145, bottom: 48, left: 62 };
+
+// ── JSONP ──────────────────────────────────────────────
+function fetchOne(sheet) {
+  return new Promise((resolve, reject) => {
+    const cb = 'gviz_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    let s;
+    const t = setTimeout(() => { cleanup(); reject(new Error('Timeout: ' + sheet.label)); }, 12000);
+    window[cb] = json => { cleanup(); resolve({ json, sheet }); };
+    function cleanup() { clearTimeout(t); delete window[cb]; s && s.parentNode && s.parentNode.removeChild(s); }
+    s = document.createElement('script');
+    s.src = 'https://docs.google.com/spreadsheets/d/' + sheet.id
+      + '/gviz/tq?tqx=responseHandler:' + cb
+      + '&sheet=' + encodeURIComponent(sheet.name)
+      + '&range=' + encodeURIComponent(sheet.range) + '&headers=0';
+    s.onerror = () => { cleanup(); reject(new Error('Error cargando: ' + sheet.label)); };
+    document.head.appendChild(s);
+  });
+}
+
+// ── Parse one sheet's rows ─────────────────────────────
+function parseSheet(json, sheet, srcIdx) {
+  const safeNum = (c, i) => {
+    if (!c[i] || c[i].v == null || isNaN(c[i].v)) return null;
+    return +c[i].v;
+  };
+  const cl = sheet.cols;
+  return json.table.rows
+    .filter(row => sheet.isData(row.c || [], safeNum))
+    .map(row => {
+      const c   = row.c || [];
+      const pct = i => { const v = safeNum(c, i); return v !== null ? +(v * 100).toFixed(4) : null; };
+      return {
+        bond: String(c[cl.bond].v).trim(),
+        McD:  safeNum(c, cl.McD),
+        TEM:  pct(cl.TEM),
+        TNA:  pct(cl.TNA),
+        CER:  pct(cl.CER),
+        USD:  pct(cl.USD),
+        src:  srcIdx,
+      };
+    });
+}
+
+// ── Load all sheets ────────────────────────────────────
+async function loadData() {
+  showOverlay('loading'); setRefreshing(true);
+
+  // Only fetch sheets whose ID has been configured (not the placeholder)
+  const sheetsToFetch = SHEETS
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => !s.id.startsWith('REEMPLAZAR'));
+
+  const results = await Promise.allSettled(sheetsToFetch.map(({ s }) => fetchOne(s)));
+
+  let loaded = [];
+  results.forEach((res, ri) => {
+    const srcIdx = sheetsToFetch[ri].i;
+    if (res.status === 'fulfilled') {
+      const { json, sheet } = res.value;
+      if (json.status !== 'error') {
+        loaded.push(...parseSheet(json, sheet, srcIdx));
+      }
+    }
+  });
+
+  if (!loaded.length) {
+    showOverlay('error', 'No se pudieron cargar los datos.<br><small>Verificá que los sheets sean públicos.</small>');
+    setRefreshing(false); return;
+  }
+
+  loaded.sort((a, b) => a.McD - b.McD);
+
+  const prev = { ...selected };
+  selected = {};
+  loaded.forEach(d => {
+    const k = d.src + ':' + d.bond;
+    selected[k] = prev[k] !== false;
+  });
+  allData = loaded;
+
+  const total = allData.length;
+  const srcs  = [...new Set(allData.map(d => d.src))];
+  document.getElementById('subtitle').textContent =
+    total + ' bonos · ' + srcs.length + ' fuente' + (srcs.length > 1 ? 's' : '') + ' · eje X: McD';
+  document.getElementById('lastUpdate').textContent = 'Act: ' + new Date().toLocaleString('es-AR');
+
+  buildLegend();
+  renderList();
+  resizeCanvas();
+  redraw();
+  populateInputs(getActivePts());
+  showOverlay('hidden');
+  setRefreshing(false);
+}
+
+// ── Legend ─────────────────────────────────────────────
+function buildLegend() {
+  const srcs  = [...new Set(allData.map(d => d.src))];
+  const color = COL[currentM];
+  const el    = document.getElementById('legend');
+  el.innerHTML = srcs.map(i => {
+    const st   = SERIES_STYLE[i] || SERIES_STYLE[0];
+    const on   = seriesOn[i];
+    const circleStyle = st.hollow
+      ? `border:1.5px solid ${color}; background:transparent;`
+      : `background:${color}; border:1.5px solid ${color};`;
+    return `<div class="legend-chip ${on ? '' : 'off'}" style="border-color:${color}33; color:${color}"
+              onclick="toggleSeries(${i})">
+      <span class="chip-circle" style="${circleStyle}"></span>
+      ${SHEETS[i].label}
+    </div>`;
+  }).join('');
+}
+
+function toggleSeries(i) {
+  seriesOn[i] = !seriesOn[i];
+  buildLegend(); renderList(); redraw();
+}
+
+// ── Bond list ──────────────────────────────────────────
+function renderList() {
+  const q  = document.getElementById('bondSearch').value.toLowerCase();
+  const el = document.getElementById('bondList');
+  const visible = allData.filter(d =>
+    seriesOn[d.src] &&
+    (d.bond.toLowerCase().includes(q) || SHEETS[d.src].label.toLowerCase().includes(q))
+  );
+
+  el.innerHTML = visible.map(d => {
+    const k      = d.src + ':' + d.bond;
+    const on     = selected[k];
+    const color  = COL[currentM];
+    const metVal = d[currentM];
+    const metStr = metVal !== null ? metVal.toFixed(2) + '%' : '—';
+    return `<div class="bond-row ${on ? 'active' : 'inactive'}" onclick="toggleBond('${k}')">
+      <input type="checkbox" ${on ? 'checked' : ''} onclick="event.stopPropagation(); toggleBond('${k}')">
+      <span class="src-badge" style="background:${color}22; color:${color}">${d.src + 1}</span>
+      <span class="bond-name">${d.bond}</span>
+      <span class="bond-mcd">${d.McD.toFixed(2)}</span>
+      <span class="bond-met">${metStr}</span>
+    </div>`;
+  }).join('');
+
+  updateCount();
+}
+
+function toggleBond(key) {
+  selected[key] = !selected[key];
+  renderList(); redraw();
+}
+
+function setAll(val) {
+  allData.forEach(d => { selected[d.src + ':' + d.bond] = val; });
+  renderList(); redraw();
+}
+
+function updateCount() {
+  const n = allData.filter(d => selected[d.src + ':' + d.bond]).length;
+  document.getElementById('bondCount').textContent = n + ' / ' + allData.length + ' seleccionados';
+}
+
+// ── Polynomial fit ─────────────────────────────────────
+function makePolyFit(xs, ys, deg) {
+  const n = xs.length;
+  deg = Math.min(deg, n - 1, 3);
+  const d = deg + 1;
+  const xm = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const xr = (Math.max(...xs) - Math.min(...xs)) / 2 || 1;
+  const norm = x => (x - xm) / xr;
+  const xn = xs.map(norm);
+
+  const mat = Array.from({length: d}, (_, i) => {
+    const row = new Float64Array(d + 1);
+    for (let j = 0; j < d; j++) for (let k = 0; k < n; k++) row[j] += Math.pow(xn[k], i + j);
+    for (let k = 0; k < n; k++) row[d] += Math.pow(xn[k], i) * ys[k];
+    return row;
+  });
+
+  for (let i = 0; i < d; i++) {
+    let mx = i;
+    for (let k = i+1; k < d; k++) if (Math.abs(mat[k][i]) > Math.abs(mat[mx][i])) mx = k;
+    [mat[i], mat[mx]] = [mat[mx], mat[i]];
+    const piv = mat[i][i];
+    if (Math.abs(piv) < 1e-14) continue;
+    for (let j = i; j <= d; j++) mat[i][j] /= piv;
+    for (let k = 0; k < d; k++) {
+      if (k === i) continue;
+      const f = mat[k][i];
+      if (Math.abs(f) < 1e-15) continue;
+      for (let j = i; j <= d; j++) mat[k][j] -= f * mat[i][j];
+    }
+  }
+
+  const coeffs = mat.map(row => isFinite(row[d]) ? row[d] : 0);
+  return x => {
+    const xn = norm(x);
+    let v = 0;
+    for (let i = 0; i < d; i++) v += coeffs[i] * Math.pow(xn, i);
+    return isFinite(v) ? v : null;
+  };
+}
+
+// ── Canvas ─────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const r   = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width        = Math.floor(r.width  * dpr);
+  canvas.height       = Math.floor(r.height * dpr);
+  canvas.style.width  = Math.floor(r.width)  + 'px';
+  canvas.style.height = Math.floor(r.height) + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);  // todas las coords quedan en puntos lógicos
+}
+
+function getActivePts() {
+  return allData.filter(d => seriesOn[d.src] && selected[d.src + ':' + d.bond] && d[currentM] !== null);
+}
+
+function niceStep(range, target) {
+  const rough = range / target;
+  const p = Math.pow(10, Math.floor(Math.log10(rough || 1)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (p * m >= rough) return p * m;
+  return rough;
+}
+
+function calcAuto(pts) {
+  const xs = pts.map(d => d.McD), ys = pts.map(d => d[currentM]);
+  const xmin = Math.min(...xs), xmax = Math.max(...xs);
+  const ymin = Math.min(...ys), ymax = Math.max(...ys);
+  const xp = (xmax-xmin)*.10||.05, yp = (ymax-ymin)*.15||.5;
+  return { xLo: xmin-xp, xHi: xmax+xp, yLo: ymin-yp, yHi: ymax+yp };
+}
+
+function buildScale(pts) {
+  const dpr  = window.devicePixelRatio || 1;
+  const lW   = canvas.width  / dpr;   // dimensiones lógicas (CSS pixels)
+  const lH   = canvas.height / dpr;
+  const auto = calcAuto(pts);
+  const xlo = axisOverride.xLo ?? auto.xLo, xhi = axisOverride.xHi ?? auto.xHi;
+  const ylo = axisOverride.yLo ?? auto.yLo, yhi = axisOverride.yHi ?? auto.yHi;
+  const pW = lW - PAD.left - PAD.right;
+  const pH = lH - PAD.top  - PAD.bottom;
+  return {
+    xlo, xhi, ylo, yhi, pW, pH,
+    tx: x => PAD.left + (x-xlo)/(xhi-xlo)*pW,
+    ty: y => PAD.top  + pH - (y-ylo)/(yhi-ylo)*pH,
+  };
+}
+
+function populateInputs(pts) {
+  if (!pts.length) return;
+  const auto = calcAuto(pts);
+  const f = (ovr, v) => ovr !== null ? ovr : v;
+  document.getElementById('axXlo').value = f(axisOverride.xLo, auto.xLo).toFixed(2);
+  document.getElementById('axXhi').value = f(axisOverride.xHi, auto.xHi).toFixed(2);
+  document.getElementById('axYlo').value = f(axisOverride.yLo, auto.yLo).toFixed(2);
+  document.getElementById('axYhi').value = f(axisOverride.yHi, auto.yHi).toFixed(2);
+}
+
+function onAxisChange() {
+  const p = id => { const v = parseFloat(document.getElementById(id).value); return isFinite(v) ? v : null; };
+  axisOverride = { xLo: p('axXlo'), xHi: p('axXhi'), yLo: p('axYlo'), yHi: p('axYhi') };
+  redraw();
+}
+
+function resetAxes() {
+  axisOverride = { xLo: null, xHi: null, yLo: null, yHi: null };
+  const pts = getActivePts();
+  if (pts.length) populateInputs(pts);
+  redraw();
+}
+
+function redraw() {
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.width  / dpr;
+  const H   = canvas.height / dpr;
+  const tc  = themeC();
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = tc.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const pts = getActivePts();
+  lastPts   = pts;
+
+  if (!pts.length) {
+    ctx.fillStyle = tc.nodata; ctx.font = '13px -apple-system,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sin bonos seleccionados', W/2, H/2);
+    return;
+  }
+
+  const sc    = buildScale(pts);
+  const showL = document.getElementById('chkLabels').checked;
+  const showC = document.getElementById('chkCurve').checked;
+
+  // Grid Y
+  const yStep  = niceStep(sc.yhi - sc.ylo, 6);
+  const yStart = Math.ceil(sc.ylo / yStep) * yStep;
+  ctx.setLineDash([]);
+  ctx.strokeStyle = tc.grid; ctx.lineWidth = 1;
+  ctx.fillStyle = tc.lbl; ctx.font = '12px -apple-system,sans-serif';
+  for (let y = yStart; y <= sc.yhi + yStep*.01; y = +(y+yStep).toFixed(10)) {
+    const py = sc.ty(y);
+    ctx.beginPath(); ctx.moveTo(PAD.left, py); ctx.lineTo(PAD.left+sc.pW, py); ctx.stroke();
+    ctx.textAlign = 'right';
+    ctx.fillText(y.toFixed(2) + '%', PAD.left - 5, py + 3.5);
+  }
+
+  // Grid X
+  const xStep  = niceStep(sc.xhi - sc.xlo, 7);
+  const xStart = Math.ceil(sc.xlo / xStep) * xStep;
+  for (let x = xStart; x <= sc.xhi + xStep*.01; x = +(x+xStep).toFixed(10)) {
+    const px = sc.tx(x);
+    ctx.beginPath(); ctx.moveTo(px, PAD.top); ctx.lineTo(px, PAD.top+sc.pH); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillText(x.toFixed(2), px, PAD.top+sc.pH+15);
+  }
+
+  // Axes
+  ctx.strokeStyle = tc.axis; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD.left, PAD.top);
+  ctx.lineTo(PAD.left, PAD.top+sc.pH);
+  ctx.lineTo(PAD.left+sc.pW, PAD.top+sc.pH);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = tc.lbl; ctx.font = '13px -apple-system,sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Modified Duration (McD)', PAD.left+sc.pW/2, H-4);
+  ctx.save();
+  ctx.translate(12, PAD.top+sc.pH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText(YLBL[currentM], 0, 0);
+  ctx.restore();
+
+  // Draw per series: curve first, then points on top
+  const srcs = [...new Set(pts.map(d => d.src))];
+
+  const metColor = COL[currentM];
+  const metFill  = metColor + '55';  // color con 33% opacidad para relleno
+
+  srcs.forEach(si => {
+    const sPts = pts.filter(d => d.src === si);
+    const st   = SERIES_STYLE[si] || SERIES_STYLE[0];
+
+    // Curve
+    if (showC && sPts.length >= 4) {
+      const xs   = sPts.map(d => d.McD);
+      const ys   = sPts.map(d => d[currentM]);
+      const xMin = Math.min(...xs), xMax = Math.max(...xs);
+      const fn   = makePolyFit(xs, ys, 3);
+
+      ctx.beginPath();
+      let pen = false;
+      for (let i = 0; i <= 400; i++) {
+        const x = xMin + (xMax-xMin)*i/400;
+        const y = fn(x);
+        if (y === null) { pen = false; continue; }
+        const px = sc.tx(x), py = sc.ty(y);
+        if (py < PAD.top-2 || py > PAD.top+sc.pH+2) { pen = false; continue; }
+        pen ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        pen = true;
+      }
+      ctx.setLineDash(st.dash);
+      ctx.strokeStyle = metColor;
+      ctx.lineWidth   = 2;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
+  // Points (all series on top of curves)
+  pts.forEach((d, i) => {
+    const st    = SERIES_STYLE[d.src] || SERIES_STYLE[0];
+    const px    = sc.tx(d.McD), py = sc.ty(d[currentM]);
+    const hover = hoverKey === d.src + ':' + i;
+    const r     = hover ? 7 : 5;
+
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2);
+    if (st.hollow) {
+      ctx.fillStyle = hover ? metColor + '44' : tc.hollow;
+    } else {
+      ctx.fillStyle = hover ? metColor : metFill;
+    }
+    ctx.fill();
+    ctx.strokeStyle = metColor; ctx.lineWidth = hover ? 2 : 1.5; ctx.stroke();
+  });
+
+  // Labels
+  if (showL) {
+    ctx.font = '13px -apple-system,sans-serif'; ctx.fillStyle = tc.dotLbl;
+    pts.forEach((d, i) => {
+      if (hoverKey === d.src + ':' + i) return;
+      ctx.textAlign = 'left';
+      ctx.fillText(d.bond, sc.tx(d.McD)+7, sc.ty(d[currentM])+3.5);
+    });
+  }
+}
+
+// ── Tooltip ────────────────────────────────────────────
+const tip = document.getElementById('tip');
+
+canvas.addEventListener('mousemove', e => {
+  if (!lastPts.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx   = e.clientX - rect.left;   // ya en coordenadas lógicas (CSS px)
+  const my   = e.clientY - rect.top;
+  const sc   = buildScale(lastPts);
+
+  let best = -1, bestD = 14;
+  lastPts.forEach((d, i) => {
+    const dx = sc.tx(d.McD)-mx, dy = sc.ty(d[currentM])-my;
+    const dist = Math.hypot(dx, dy);
+    if (dist < bestD) { bestD = dist; best = i; }
+  });
+
+  const newKey = best >= 0 ? lastPts[best].src + ':' + best : null;
+  if (newKey !== hoverKey) { hoverKey = newKey; redraw(); }
+
+  if (best >= 0) {
+    const d   = lastPts[best];
+    const lbl = SHEETS[d.src].label;
+    tip.innerHTML = `<b>${d.bond}</b> <span style="opacity:.6;font-size:10px">${lbl}</span><br>McD: ${d.McD.toFixed(2)}<br>${currentM}: ${d[currentM].toFixed(2)}%`;
+    tip.style.cssText = `display:block; left:${e.clientX+14}px; top:${e.clientY-8}px`;
+  } else {
+    tip.style.display = 'none';
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  tip.style.display = 'none'; hoverKey = null; redraw();
+});
+
+// ── Controls ───────────────────────────────────────────
+function switchMetric(m) {
+  currentM = m;
+  METRICS.forEach(x => document.getElementById('btn-'+x).className = 'btn' + (x===m ? ' on-'+x : ''));
+  document.getElementById('thMetric').textContent = m + '%';
+  if (allData.length) {
+    axisOverride.yLo = null; axisOverride.yHi = null;
+    buildLegend(); renderList(); redraw(); populateInputs(getActivePts());
+  }
+}
+
+// ── Overlay ────────────────────────────────────────────
+function showOverlay(mode, html) {
+  const el = document.getElementById('overlay');
+  if (mode === 'hidden') { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = mode === 'loading'
+    ? '<div class="spinner"></div><div class="overlay-text">Cargando desde Google Sheets…</div>'
+    : '<div class="error-box">' + html + '</div>';
+}
+
+function setRefreshing(on) {
+  const b = document.getElementById('refreshBtn');
+  b.disabled = on; b.classList.toggle('spinning', on);
+}
+
+// ── Resize ─────────────────────────────────────────────
+new ResizeObserver(() => { if (allData.length) { resizeCanvas(); redraw(); } })
+  .observe(document.querySelector('.canvas-wrap'));
+
+// ══════════════════════════════════════════════════════
+//  Q3 — FORWARDS (matriz_varios)
+// ══════════════════════════════════════════════════════
+const FWDS_SHEET = {
+  id:    '1n9lfE_6kX4lA3cagg1oh4UN4PanASe1XWOYie8qqRZY',
+  name:  'matriz_varios',
+  range: 'A1:Z90',
+};
+const FWDS_COLORS = ['#e32d91','#1a4cc8','#7030a0','#1155cc'];
+
+const canvasQ3 = document.getElementById('c3');
+const ctxQ3    = canvasQ3.getContext('2d');
+let fwdsSections = {};
+let currentFwds  = null;
+let lastFwdsPts  = [];
+let hoverFwdsIdx = -1;
+
+function fetchFwdsSheet() {
+  return new Promise((resolve, reject) => {
+    const cb = 'fwds_' + Date.now(); let s;
+    const t = setTimeout(() => { cleanup(); reject(new Error('Timeout')); }, 12000);
+    window[cb] = json => { cleanup(); resolve(json); };
+    function cleanup() { clearTimeout(t); delete window[cb]; s && s.parentNode && s.parentNode.removeChild(s); }
+    s = document.createElement('script');
+    s.src = 'https://docs.google.com/spreadsheets/d/' + FWDS_SHEET.id
+      + '/gviz/tq?tqx=responseHandler:' + cb
+      + '&sheet=' + encodeURIComponent(FWDS_SHEET.name)
+      + '&range=' + encodeURIComponent(FWDS_SHEET.range) + '&headers=0';
+    s.onerror = () => { cleanup(); reject(new Error('Error cargando script')); };
+    document.head.appendChild(s);
+  });
+}
+
+function parseFwdsData(rows) {
+  const sections = {};
+  let current = null;
+  rows.forEach(row => {
+    const c   = row.c || [];
+    const str = i => c[i] && c[i].v != null ? String(c[i].v).trim() : null;
+    const num = i => { if (!c[i] || c[i].v == null) return null; const v = +c[i].v; return isFinite(v) ? v : null; };
+    const colC = str(2);
+    if (colC && colC.toLowerCase().includes('fwds')) {
+      current = colC;
+      if (!sections[current]) sections[current] = [];
+      return;
+    }
+    if (!current) return;
+    const name = colC, x = num(1), y = num(21);
+    if (name && x !== null && y !== null) sections[current].push({ name, x, y });
+  });
+  return sections;
+}
+
+async function loadFwds() {
+  showFwdsOverlay('loading');
+  try {
+    const json = await fetchFwdsSheet();
+    if (json.status === 'error') throw new Error((json.errors||[]).map(e=>e.message).join('; '));
+    fwdsSections = parseFwdsData(json.table.rows);
+    const keys = Object.keys(fwdsSections);
+    const sel  = document.getElementById('fwdsSelect');
+    sel.innerHTML = keys.map(k => `<option value="${k}">${k}</option>`).join('');
+    if (!currentFwds || !fwdsSections[currentFwds]) currentFwds = keys[0] || null;
+    if (currentFwds) sel.value = currentFwds;
+    resizeCanvasQ3(); redrawFwds(); showFwdsOverlay('hidden');
+  } catch(e) {
+    showFwdsOverlay('error', 'Error cargando Forwards.<br><small>' + e.message + '</small>');
+  }
+}
+
+function showFwdsOverlay(mode, html) {
+  const el = document.getElementById('overlayQ3');
+  if (mode === 'hidden') { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = mode === 'loading'
+    ? '<div class="spinner"></div><div class="overlay-text">Cargando Forwards…</div>'
+    : '<div class="error-box">' + html + '</div>';
+}
+
+function resizeCanvasQ3() {
+  const r = document.getElementById('q3wrap').getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvasQ3.width        = Math.floor(r.width  * dpr);
+  canvasQ3.height       = Math.floor(r.height * dpr);
+  canvasQ3.style.width  = Math.floor(r.width)  + 'px';
+  canvasQ3.style.height = Math.floor(r.height) + 'px';
+  ctxQ3.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function switchFwds(val) { currentFwds = val; redrawFwds(); }
+
+function redrawFwds() {
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvasQ3.width/dpr, H = canvasQ3.height/dpr;
+  const tc = themeC();
+  ctxQ3.clearRect(0,0,W,H); ctxQ3.fillStyle=tc.bg; ctxQ3.fillRect(0,0,W,H);
+  if (!currentFwds || !fwdsSections[currentFwds]) return;
+
+  const pts = fwdsSections[currentFwds]; lastFwdsPts = pts;
+  if (!pts.length) { ctxQ3.fillStyle=tc.nodata; ctxQ3.font='12px -apple-system,sans-serif'; ctxQ3.textAlign='center'; ctxQ3.fillText('Sin datos',W/2,H/2); return; }
+
+  const keys  = Object.keys(fwdsSections);
+  const color = FWDS_COLORS[keys.indexOf(currentFwds) % FWDS_COLORS.length];
+  const xs=pts.map(d=>d.x), ys=pts.map(d=>d.y);
+  const xmin=Math.min(...xs), xmax=Math.max(...xs), ymin=Math.min(...ys), ymax=Math.max(...ys);
+  const xp=(xmax-xmin)*.10||.05, yp=(ymax-ymin)*.15||.5;
+  const xlo=xmin-xp, xhi=xmax+xp, ylo=ymin-yp, yhi=ymax+yp;
+  const pW=W-PAD.left-PAD.right, pH=H-PAD.top-PAD.bottom;
+  const tx=x=>PAD.left+(x-xlo)/(xhi-xlo)*pW;
+  const ty=y=>PAD.top+pH-(y-ylo)/(yhi-ylo)*pH;
+
+  // Grid Y
+  const yStep=niceStep(yhi-ylo,5), yStart=Math.ceil(ylo/yStep)*yStep;
+  ctxQ3.setLineDash([]); ctxQ3.strokeStyle=tc.grid; ctxQ3.lineWidth=1;
+  ctxQ3.fillStyle=tc.lbl; ctxQ3.font='12px -apple-system,sans-serif';
+  for (let y=yStart; y<=yhi+yStep*.01; y=+(y+yStep).toFixed(10)) {
+    const py=ty(y); ctxQ3.beginPath(); ctxQ3.moveTo(PAD.left,py); ctxQ3.lineTo(PAD.left+pW,py); ctxQ3.stroke();
+    ctxQ3.textAlign='right'; ctxQ3.fillText((y*100).toFixed(2)+'%', PAD.left-5, py+3.5);
+  }
+  // Grid X
+  const xStep=niceStep(xhi-xlo,6), xStart=Math.ceil(xlo/xStep)*xStep;
+  for (let x=xStart; x<=xhi+xStep*.01; x=+(x+xStep).toFixed(10)) {
+    const px=tx(x); ctxQ3.beginPath(); ctxQ3.moveTo(px,PAD.top); ctxQ3.lineTo(px,PAD.top+pH); ctxQ3.stroke();
+    ctxQ3.textAlign='center'; ctxQ3.fillText(x.toFixed(2), px, PAD.top+pH+15);
+  }
+  // Axes
+  ctxQ3.strokeStyle=tc.axis; ctxQ3.lineWidth=1;
+  ctxQ3.beginPath(); ctxQ3.moveTo(PAD.left,PAD.top); ctxQ3.lineTo(PAD.left,PAD.top+pH); ctxQ3.lineTo(PAD.left+pW,PAD.top+pH); ctxQ3.stroke();
+  ctxQ3.fillStyle=tc.lbl; ctxQ3.font='13px -apple-system,sans-serif';
+  ctxQ3.textAlign='center'; ctxQ3.fillText('Duration (B)', PAD.left+pW/2, H-4);
+  ctxQ3.save(); ctxQ3.translate(12,PAD.top+pH/2); ctxQ3.rotate(-Math.PI/2); ctxQ3.fillText('Fwd (%)', 0, 0); ctxQ3.restore();
+
+  // Curve
+  if (document.getElementById('chkCurve3').checked && pts.length>=4) {
+    const fn=makePolyFit(xs,ys,3), xMin=Math.min(...xs), xMax=Math.max(...xs);
+    ctxQ3.beginPath(); let pen=false;
+    for (let i=0;i<=400;i++) {
+      const x=xMin+(xMax-xMin)*i/400, y=fn(x);
+      if (y===null){pen=false;continue;}
+      const px=tx(x),py=ty(y);
+      if (py<PAD.top-2||py>PAD.top+pH+2){pen=false;continue;}
+      pen?ctxQ3.lineTo(px,py):ctxQ3.moveTo(px,py); pen=true;
+    }
+    ctxQ3.setLineDash([]); ctxQ3.strokeStyle=color; ctxQ3.lineWidth=2; ctxQ3.stroke();
+  }
+
+  // Points
+  pts.forEach((d,i)=>{
+    const px=tx(d.x),py=ty(d.y),hover=i===hoverFwdsIdx;
+    ctxQ3.beginPath(); ctxQ3.arc(px,py,hover?7:5,0,Math.PI*2);
+    ctxQ3.fillStyle=hover?color:color+'55'; ctxQ3.fill();
+    ctxQ3.strokeStyle=color; ctxQ3.lineWidth=hover?2:1.5; ctxQ3.stroke();
+  });
+
+  // Labels
+  if (document.getElementById('chkLabels3').checked) {
+    ctxQ3.font='13px -apple-system,sans-serif'; ctxQ3.fillStyle=tc.dotLbl;
+    pts.forEach((d,i)=>{ if(i===hoverFwdsIdx)return; ctxQ3.textAlign='left'; ctxQ3.fillText(d.name,tx(d.x)+7,ty(d.y)+3.5); });
+  }
+}
+
+// Tooltip Q3
+canvasQ3.addEventListener('mousemove', e => {
+  if (!lastFwdsPts.length) return;
+  const rect=canvasQ3.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const dpr=window.devicePixelRatio||1, W=canvasQ3.width/dpr, H=canvasQ3.height/dpr;
+  const xs=lastFwdsPts.map(d=>d.x), ys=lastFwdsPts.map(d=>d.y);
+  const xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);
+  const xp=(xmax-xmin)*.10||.05,yp=(ymax-ymin)*.15||.5;
+  const xlo=xmin-xp,xhi=xmax+xp,ylo=ymin-yp,yhi=ymax+yp;
+  const pW=W-PAD.left-PAD.right,pH=H-PAD.top-PAD.bottom;
+  const tx=x=>PAD.left+(x-xlo)/(xhi-xlo)*pW, ty=y=>PAD.top+pH-(y-ylo)/(yhi-ylo)*pH;
+  let best=-1,bestD=14;
+  lastFwdsPts.forEach((d,i)=>{ const dist=Math.hypot(tx(d.x)-mx,ty(d.y)-my); if(dist<bestD){bestD=dist;best=i;} });
+  if(best!==hoverFwdsIdx){hoverFwdsIdx=best;redrawFwds();}
+  if(best>=0){
+    const d=lastFwdsPts[best];
+    tip.innerHTML=`<b>${d.name}</b><br>B: ${d.x.toFixed(2)}<br>Fwd: ${(d.y*100).toFixed(2)}%`;
+    tip.style.cssText=`display:block;left:${e.clientX+14}px;top:${e.clientY-8}px`;
+  } else { tip.style.display='none'; }
+});
+canvasQ3.addEventListener('mouseleave',()=>{ tip.style.display='none'; hoverFwdsIdx=-1; redrawFwds(); });
+
+new ResizeObserver(()=>{ if(Object.keys(fwdsSections).length){resizeCanvasQ3();redrawFwds();} })
+  .observe(document.getElementById('q3wrap'));
+
+// ══════════════════════════════════════════════════════
+//  Q4 — INFLACIÓN BREAKEVEN (BE_Infl_Final)
+// ══════════════════════════════════════════════════════
+const BE_SHEET = {
+  id:    '1oZBcS_0OLWhktL2ToL3vRj4v_I8Ui7Z3AN8WvDDGbBU',
+  name:  'BE_Infl_Final',
+  range: 'B3:I35',
+};
+const BE_COL  = { BE: '#1a4cc8', CTIO: '#e32d91' };
+const PAD_BE  = { top: 34, right: 20, bottom: 44, left: 48 };
+
+const canvasQ4 = document.getElementById('c4');
+const ctxQ4    = canvasQ4.getContext('2d');
+let beData = [];
+
+function fetchBESheet() {
+  return new Promise((resolve, reject) => {
+    const cb = 'be_' + Date.now() + '_' + Math.random().toString(36).slice(2); let s;
+    const t = setTimeout(() => { cleanup(); reject(new Error('Timeout')); }, 12000);
+    window[cb] = json => { cleanup(); resolve(json); };
+    function cleanup() { clearTimeout(t); delete window[cb]; s && s.parentNode && s.parentNode.removeChild(s); }
+    s = document.createElement('script');
+    s.src = 'https://docs.google.com/spreadsheets/d/' + BE_SHEET.id
+      + '/gviz/tq?tqx=responseHandler:' + cb
+      + '&sheet=' + encodeURIComponent(BE_SHEET.name)
+      + '&range=' + encodeURIComponent(BE_SHEET.range) + '&headers=0';
+    s.onerror = () => { cleanup(); reject(new Error('Error cargando BE')); };
+    document.head.appendChild(s);
+  });
+}
+
+function parseBEData(rows) {
+  const result = [];
+  const str    = (c, i) => c[i] && c[i].v != null ? String(c[i].v).trim() : '';
+  const safeN  = (c, i) => { if (!c[i] || c[i].v == null || isNaN(c[i].v)) return null; return +c[i].v; };
+  const pct    = (c, i) => { const v = safeN(c, i); return v !== null ? +(v * 100).toFixed(4) : null; };
+  let lastBond = '';
+  rows.forEach(row => {
+    const c    = row.c || [];
+    const col0 = str(c, 0);
+    if (!col0) return;
+    if (col0 === 'Diferencia') {
+      const be = pct(c, 6), ctio = pct(c, 7);
+      if (lastBond && (be !== null || ctio !== null)) result.push({ label: lastBond, BE: be, CTIO: ctio });
+      lastBond = '';
+      return;
+    }
+    lastBond = col0;
+  });
+  return result;
+}
+
+async function loadBE() {
+  showBEOverlay('loading');
+  try {
+    const json = await fetchBESheet();
+    if (json.status === 'error') throw new Error((json.errors||[]).map(e=>e.message).join('; '));
+    beData = parseBEData(json.table.rows);
+    resizeCanvasQ4(); redrawBE(); showBEOverlay('hidden');
+  } catch(e) {
+    showBEOverlay('error', 'Error cargando BreakEven.<br><small>' + e.message + '</small>');
+  }
+}
+
+function showBEOverlay(mode, html) {
+  const el = document.getElementById('overlayQ4');
+  if (mode === 'hidden') { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = mode === 'loading'
+    ? '<div class="spinner"></div><div class="overlay-text">Cargando BreakEven…</div>'
+    : '<div class="error-box">' + html + '</div>';
+}
+
+function resizeCanvasQ4() {
+  const r   = document.getElementById('q4wrap').getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvasQ4.width        = Math.floor(r.width  * dpr);
+  canvasQ4.height       = Math.floor(r.height * dpr);
+  canvasQ4.style.width  = Math.floor(r.width)  + 'px';
+  canvasQ4.style.height = Math.floor(r.height) + 'px';
+  ctxQ4.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function redrawBE() {
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvasQ4.width / dpr, H = canvasQ4.height / dpr;
+  const tc  = themeC();
+  ctxQ4.clearRect(0, 0, W, H);
+  ctxQ4.fillStyle = tc.bg; ctxQ4.fillRect(0, 0, W, H);
+  if (!beData.length) {
+    ctxQ4.fillStyle = tc.nodata; ctxQ4.font = '12px -apple-system,sans-serif';
+    ctxQ4.textAlign = 'center'; ctxQ4.fillText('Sin datos', W/2, H/2);
+    return;
+  }
+
+  const n  = beData.length;
+  const pW = W - PAD_BE.left - PAD_BE.right;
+  const pH = H - PAD_BE.top  - PAD_BE.bottom;
+
+  const allVals = beData.flatMap(d => [d.BE, d.CTIO]).filter(v => v !== null);
+  const maxV    = Math.max(...allVals);
+  const minV    = Math.min(0, Math.min(...allVals));
+  const rng     = maxV - minV || 1;
+  const yhi     = maxV + rng * 0.20;
+  const ylo     = minV - rng * 0.05;
+  const ty      = y => PAD_BE.top + pH - (y - ylo) / (yhi - ylo) * pH;
+  const zero    = ty(0);
+
+  // Grid Y
+  const yStep  = niceStep(yhi - ylo, 5);
+  const yStart = Math.ceil(ylo / yStep) * yStep;
+  ctxQ4.setLineDash([]); ctxQ4.strokeStyle = tc.grid; ctxQ4.lineWidth = 1;
+  ctxQ4.fillStyle = tc.lbl; ctxQ4.font = '13px -apple-system,sans-serif';
+  for (let y = yStart; y <= yhi + yStep * 0.01; y = +(y + yStep).toFixed(10)) {
+    const py = ty(y);
+    ctxQ4.beginPath(); ctxQ4.moveTo(PAD_BE.left, py); ctxQ4.lineTo(PAD_BE.left + pW, py); ctxQ4.stroke();
+    ctxQ4.textAlign = 'right'; ctxQ4.fillText(y.toFixed(2) + '%', PAD_BE.left - 4, py + 3);
+  }
+
+  // Bars
+  const groupW = pW / n;
+  const barW   = Math.min(groupW * 0.30, 20);
+  const gap    = 2;
+  const showL  = document.getElementById('chkLabelsBE').checked;
+
+  beData.forEach((d, i) => {
+    const cx = PAD_BE.left + groupW * i + groupW / 2;
+
+    if (d.BE !== null) {
+      const bx = cx - barW - gap / 2, by = ty(d.BE), bh = zero - by;
+      ctxQ4.fillStyle = BE_COL.BE + 'cc'; ctxQ4.fillRect(bx, by, barW, bh);
+      if (showL) {
+        ctxQ4.fillStyle = tc.barLbl; ctxQ4.font = '12px -apple-system,sans-serif'; ctxQ4.textAlign = 'center';
+        ctxQ4.fillText(d.BE.toFixed(2) + '%', bx + barW / 2, by - 3);
+      }
+    }
+    if (d.CTIO !== null) {
+      const bx = cx + gap / 2, by = ty(d.CTIO), bh = zero - by;
+      ctxQ4.fillStyle = BE_COL.CTIO + 'cc'; ctxQ4.fillRect(bx, by, barW, bh);
+      if (showL) {
+        ctxQ4.fillStyle = tc.barLbl; ctxQ4.font = '12px -apple-system,sans-serif'; ctxQ4.textAlign = 'center';
+        ctxQ4.fillText(d.CTIO.toFixed(2) + '%', bx + barW / 2, by - 3);
+      }
+    }
+
+    ctxQ4.fillStyle = tc.xlbl; ctxQ4.font = '13px -apple-system,sans-serif'; ctxQ4.textAlign = 'center';
+    ctxQ4.fillText(d.label, cx, PAD_BE.top + pH + 14);
+  });
+
+  // Axis
+  ctxQ4.strokeStyle = tc.axis; ctxQ4.lineWidth = 1;
+  ctxQ4.beginPath();
+  ctxQ4.moveTo(PAD_BE.left, PAD_BE.top);
+  ctxQ4.lineTo(PAD_BE.left, PAD_BE.top + pH);
+  ctxQ4.lineTo(PAD_BE.left + pW, PAD_BE.top + pH); ctxQ4.stroke();
+
+  // Legend
+  const lx = PAD_BE.left, ly = 14;
+  ctxQ4.fillStyle = BE_COL.BE; ctxQ4.fillRect(lx, ly - 8, 10, 8);
+  ctxQ4.fillStyle = tc.xlbl; ctxQ4.font = '13px -apple-system,sans-serif'; ctxQ4.textAlign = 'left';
+  ctxQ4.fillText('BreakEven', lx + 13, ly);
+  ctxQ4.fillStyle = BE_COL.CTIO; ctxQ4.fillRect(lx + 78, ly - 8, 10, 8);
+  ctxQ4.fillStyle = tc.xlbl; ctxQ4.fillText('CTIO', lx + 91, ly);
+}
+
+new ResizeObserver(() => { if (beData.length) { resizeCanvasQ4(); redrawBE(); } })
+  .observe(document.getElementById('q4wrap'));
+
+// ══════════════════════════════════════════════════════
+//  Q5 — TASA REAL BE (BE_TasaReal)
+// ══════════════════════════════════════════════════════
+const TR_SHEET = {
+  id:    '1oZBcS_0OLWhktL2ToL3vRj4v_I8Ui7Z3AN8WvDDGbBU',
+  name:  'BE_TasaReal',
+  range: 'AS23:AU30',
+};
+const TR_COL   = { s1: '#1a4cc8', s2: '#7030a0' };
+const TR_LBLS  = { s1: 'Tamar real BE', s2: 'Escenario base' };
+const PAD_TR   = { top: 34, right: 20, bottom: 52, left: 52 };
+
+const canvasQ5 = document.getElementById('c5');
+const ctxQ5    = canvasQ5.getContext('2d');
+let trData = [];
+
+function fetchTRSheet() {
+  return new Promise((resolve, reject) => {
+    const cb = 'tr_' + Date.now() + '_' + Math.random().toString(36).slice(2); let s;
+    const t = setTimeout(() => { cleanup(); reject(new Error('Timeout')); }, 12000);
+    window[cb] = json => { cleanup(); resolve(json); };
+    function cleanup() { clearTimeout(t); delete window[cb]; s && s.parentNode && s.parentNode.removeChild(s); }
+    s = document.createElement('script');
+    s.src = 'https://docs.google.com/spreadsheets/d/' + TR_SHEET.id
+      + '/gviz/tq?tqx=responseHandler:' + cb
+      + '&sheet=' + encodeURIComponent(TR_SHEET.name)
+      + '&range=' + encodeURIComponent(TR_SHEET.range) + '&headers=1';
+    s.onerror = () => { cleanup(); reject(new Error('Error cargando TR')); };
+    document.head.appendChild(s);
+  });
+}
+
+function parseTRData(rows) {
+  const safeN = (c, i) => { if (!c[i] || c[i].v == null || isNaN(c[i].v)) return null; return +c[i].v; };
+  const pct   = (c, i) => { const v = safeN(c, i); return v !== null ? +(v * 100).toFixed(4) : null; };
+  const str   = (c, i) => c[i] && c[i].v != null ? String(c[i].v).trim() : '';
+  return rows
+    .filter(row => { const c = row.c || []; const l = str(c, 0); return l && !l.match(/^\d/); })
+    .map(row => {
+      const c = row.c || [];
+      return { label: str(c, 0), s1: pct(c, 1), s2: pct(c, 2) };
+    })
+    .filter(d => d.s1 !== null || d.s2 !== null);
+}
+
+async function loadTR() {
+  showTROverlay('loading');
+  try {
+    const json = await fetchTRSheet();
+    if (json.status === 'error') throw new Error((json.errors||[]).map(e=>e.message).join('; '));
+    trData = parseTRData(json.table.rows);
+    resizeCanvasQ5(); redrawTR(); showTROverlay('hidden');
+  } catch(e) {
+    showTROverlay('error', 'Error cargando Tasa Real.<br><small>' + e.message + '</small>');
+  }
+}
+
+function showTROverlay(mode, html) {
+  const el = document.getElementById('overlayQ5');
+  if (mode === 'hidden') { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = mode === 'loading'
+    ? '<div class="spinner"></div><div class="overlay-text">Cargando Tasa Real…</div>'
+    : '<div class="error-box">' + html + '</div>';
+}
+
+function resizeCanvasQ5() {
+  const r   = document.getElementById('q5wrap').getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvasQ5.width        = Math.floor(r.width  * dpr);
+  canvasQ5.height       = Math.floor(r.height * dpr);
+  canvasQ5.style.width  = Math.floor(r.width)  + 'px';
+  canvasQ5.style.height = Math.floor(r.height) + 'px';
+  ctxQ5.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function redrawTR() {
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvasQ5.width / dpr, H = canvasQ5.height / dpr;
+  const tc  = themeC();
+  ctxQ5.clearRect(0, 0, W, H);
+  ctxQ5.fillStyle = tc.bg; ctxQ5.fillRect(0, 0, W, H);
+  if (!trData.length) {
+    ctxQ5.fillStyle = tc.nodata; ctxQ5.font = '12px -apple-system,sans-serif';
+    ctxQ5.textAlign = 'center'; ctxQ5.fillText('Sin datos', W/2, H/2);
+    return;
+  }
+
+  const n  = trData.length;
+  const pW = W - PAD_TR.left - PAD_TR.right;
+  const pH = H - PAD_TR.top  - PAD_TR.bottom;
+
+  const allVals = trData.flatMap(d => [d.s1, d.s2]).filter(v => v !== null);
+  const maxV    = Math.max(0, Math.max(...allVals));
+  const minV    = Math.min(0, Math.min(...allVals));
+  const rng     = maxV - minV || 1;
+  const yhi     = maxV + rng * 0.18;
+  const ylo     = minV - rng * 0.12;
+  const ty      = y => PAD_TR.top + pH - (y - ylo) / (yhi - ylo) * pH;
+  const zero    = ty(0);
+
+  // Grid Y
+  const yStep  = niceStep(yhi - ylo, 5);
+  const yStart = Math.ceil(ylo / yStep) * yStep;
+  ctxQ5.setLineDash([]); ctxQ5.strokeStyle = tc.grid; ctxQ5.lineWidth = 1;
+  ctxQ5.fillStyle = tc.lbl; ctxQ5.font = '13px -apple-system,sans-serif';
+  for (let y = yStart; y <= yhi + yStep * 0.01; y = +(y + yStep).toFixed(10)) {
+    const py = ty(y);
+    ctxQ5.beginPath(); ctxQ5.moveTo(PAD_TR.left, py); ctxQ5.lineTo(PAD_TR.left + pW, py); ctxQ5.stroke();
+    ctxQ5.textAlign = 'right'; ctxQ5.fillText(y.toFixed(2) + '%', PAD_TR.left - 4, py + 3);
+  }
+
+  // Zero line
+  ctxQ5.strokeStyle = tc.zero; ctxQ5.lineWidth = 1;
+  ctxQ5.beginPath(); ctxQ5.moveTo(PAD_TR.left, zero); ctxQ5.lineTo(PAD_TR.left + pW, zero); ctxQ5.stroke();
+
+  // Bars
+  const groupW = pW / n;
+  const barW   = Math.min(groupW * 0.30, 20);
+  const gap    = 2;
+  const showL  = document.getElementById('chkLabelsTR').checked;
+
+  trData.forEach((d, i) => {
+    const cx = PAD_TR.left + groupW * i + groupW / 2;
+
+    [['s1', TR_COL.s1, -1], ['s2', TR_COL.s2, 1]].forEach(([key, color, side]) => {
+      const val = d[key];
+      if (val === null) return;
+      const bx = side === -1 ? cx - barW - gap/2 : cx + gap/2;
+      const by = val >= 0 ? ty(val) : zero;
+      const bh = Math.abs(ty(val) - zero);
+      ctxQ5.fillStyle = color + 'cc';
+      ctxQ5.fillRect(bx, by, barW, bh);
+      if (showL) {
+        const labelY = val >= 0 ? ty(val) - 3 : ty(val) + 10;
+        ctxQ5.fillStyle = tc.barLbl; ctxQ5.font = '12px -apple-system,sans-serif'; ctxQ5.textAlign = 'center';
+        ctxQ5.fillText(val.toFixed(2) + '%', bx + barW/2, labelY);
+      }
+    });
+
+    // X label — bond name (shorten after spaces)
+    const lbl = d.label.split(/\s{2,}/)[0].trim();
+    ctxQ5.fillStyle = tc.xlbl; ctxQ5.font = '12px -apple-system,sans-serif'; ctxQ5.textAlign = 'center';
+    ctxQ5.fillText(lbl, cx, PAD_TR.top + pH + 13);
+  });
+
+  // Axis
+  ctxQ5.strokeStyle = tc.axis; ctxQ5.lineWidth = 1;
+  ctxQ5.beginPath();
+  ctxQ5.moveTo(PAD_TR.left, PAD_TR.top);
+  ctxQ5.lineTo(PAD_TR.left, PAD_TR.top + pH);
+  ctxQ5.lineTo(PAD_TR.left + pW, PAD_TR.top + pH); ctxQ5.stroke();
+
+  // Legend
+  const lx = PAD_TR.left, ly = 14;
+  ctxQ5.fillStyle = TR_COL.s1; ctxQ5.fillRect(lx, ly - 8, 10, 8);
+  ctxQ5.fillStyle = tc.xlbl; ctxQ5.font = '13px -apple-system,sans-serif'; ctxQ5.textAlign = 'left';
+  ctxQ5.fillText(TR_LBLS.s1, lx + 13, ly);
+  ctxQ5.fillStyle = TR_COL.s2; ctxQ5.fillRect(lx + 105, ly - 8, 10, 8);
+  ctxQ5.fillStyle = tc.xlbl;
+  ctxQ5.fillText(TR_LBLS.s2, lx + 118, ly);
+}
+
+new ResizeObserver(() => { if (trData.length) { resizeCanvasQ5(); redrawTR(); } })
+  .observe(document.getElementById('q5wrap'));
+
+// ══════════════════════════════════════════════════════
+//  Q6/Q7 — COMPARADOR DE CURVAS POR FECHA (Hist YTM / Hist McD)
+// ══════════════════════════════════════════════════════
+const HIST = {
+  id:      '1mtd9Dh5brapXTRqhEsup51hISI3rYMHq3cKBJjM5bok',
+  ytmTab:  'Hist (YTM)',
+  mcdTab:  'Hist (McD)',
+  colFrom: 'A',
+  colTo:   'GZ',   // ancho suficiente para todos los instrumentos
+  rowMax:  1410,   // el histórico llega ~fila 1404
+  panelTab:    'panel',   // universo de bonos vigentes (no vencidos)
+  panelRowMax: 300,       // filas a leer de la columna B del panel
+};
+
+// Marcadores de sección en la fila de etiquetas (fila 2 de la hoja)
+const HIST_SECTIONS = ['Lecaps','FRNs','Botes','CER','Duales','Bolis','Globales','Bonares','Bopreales'];
+
+// Agrupamiento (opción "Agrupado"): grupo visible -> secciones de la hoja
+const HIST_GROUPS = [
+  { label: 'Tasa Fija',     sections: ['Lecaps','Botes'] },
+  { label: 'CER',           sections: ['CER'] },
+  { label: 'USD-L',         sections: ['Bolis'] },
+  { label: 'Tasa Variable', sections: ['FRNs'] },
+  { label: 'Bonares',       sections: ['Bonares'] },
+  { label: 'Globales',      sections: ['Globales'] },
+  { label: 'Bopreales',     sections: ['Bopreales'] },
+];
+
+const HIST_COL1 = '#e32d91';  // fecha 1 (rosa, relleno)
+const HIST_COL2 = '#1a4cc8';  // fecha 2 (azul, hueco / punteado)
+
+// ── Estado ─────────────────────────────────────────────
+let histInstruments = [];   // [{col, ticker, section}]
+let histDates       = [];   // [{label, row}] más reciente primero (row = fila absoluta 1-based)
+let histCache       = {};   // `${tab}:${row}` -> fila gviz {c:[...]}
+const histState = {
+  A: { cat: null, d1: null, d2: null, pts: [], hover: null, sc: null, excluded: new Set(), axis: { xLo: null, xHi: null, yLo: null, yHi: null } },
+  B: { cat: null, d1: null, d2: null, pts: [], hover: null, sc: null, excluded: new Set(), axis: { xLo: null, xHi: null, yLo: null, yHi: null } },
+};
+
+// ── JSONP para un rango arbitrario ─────────────────────
+function histFetch(tab, range) {
+  return new Promise((resolve, reject) => {
+    const cb = 'hist_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    let s;
+    const t = setTimeout(() => { cleanup(); reject(new Error('Timeout ' + tab)); }, 20000);
+    window[cb] = json => { cleanup(); resolve(json); };
+    function cleanup() { clearTimeout(t); delete window[cb]; s && s.parentNode && s.parentNode.removeChild(s); }
+    s = document.createElement('script');
+    s.src = 'https://docs.google.com/spreadsheets/d/' + HIST.id
+      + '/gviz/tq?tqx=responseHandler:' + cb
+      + '&sheet=' + encodeURIComponent(tab)
+      + '&range=' + encodeURIComponent(range) + '&headers=0';
+    s.onerror = () => { cleanup(); reject(new Error('Error cargando ' + tab)); };
+    document.head.appendChild(s);
+  });
+}
+
+function histCellNum(row, i) {
+  const c = row && row.c ? row.c : [];
+  if (!c[i] || c[i].v == null || isNaN(c[i].v)) return null;
+  return +c[i].v;
+}
+function histCellStr(row, i) {
+  const c = row && row.c ? row.c : [];
+  return c[i] && c[i].v != null ? String(c[i].v).trim() : null;
+}
+
+// ── Init: etiquetas + lista de fechas ──────────────────
+async function initHist() {
+  showHistOverlay('A', 'loading'); showHistOverlay('B', 'loading');
+  try {
+    // fila de etiquetas (fila 2) de AMBOS tabs + universo vigente (pestaña "panel")
+    const [headY, headM, panelRes] = await Promise.all([
+      histFetch(HIST.ytmTab, HIST.colFrom + '2:' + HIST.colTo + '2'),
+      histFetch(HIST.mcdTab, HIST.colFrom + '2:' + HIST.colTo + '2'),
+      histFetch(HIST.panelTab, 'B1:B' + HIST.panelRowMax),
+    ]);
+    const activeSet = buildHistActiveSet(panelRes);
+    buildHistInstruments((headY.table.rows || [])[0], (headM.table.rows || [])[0], activeSet);
+
+    // columna de fechas (B) de todo el histórico
+    const datesRes = await histFetch(HIST.ytmTab, 'B1:B' + HIST.rowMax);
+    const drows = datesRes.table.rows || [];
+    histDates = [];
+    drows.forEach((r, idx) => {
+      const sheetRow = idx + 1;        // fila absoluta 1-based
+      if (sheetRow === 2) return;      // saltar fila de etiquetas
+      const lbl = histDateLabel(r);
+      if (!lbl) return;
+      histDates.push({ label: lbl, row: sheetRow });
+    });
+    // más reciente primero: fila 1 (actual) arriba, luego histórico descendente
+    histDates.sort((a, b) => (a.row === 1 ? -1 : b.row === 1 ? 1 : b.row - a.row));
+
+    populateHistControls();
+    setDefaultHistDates();
+    await refreshHistPanel('A');
+    await refreshHistPanel('B');
+  } catch (e) {
+    showHistOverlay('A', 'error', 'No se pudo cargar el histórico.<br><small>' + e.message + '</small>');
+    showHistOverlay('B', 'error', 'No se pudo cargar el histórico.<br><small>' + e.message + '</small>');
+  }
+}
+
+// Mapa ticker -> {col, section} escaneando una fila de etiquetas
+function histColMap(labelRow) {
+  const c = (labelRow && labelRow.c) ? labelRow.c : [];
+  const m = {}; let section = null;
+  for (let i = 3; i < c.length; i++) {
+    const v = c[i] && c[i].v != null ? String(c[i].v).trim() : '';
+    if (!v) continue;
+    if (HIST_SECTIONS.includes(v)) { section = v; continue; }
+    if (section && !(v in m)) m[v] = { col: i, section };
+  }
+  return m;
+}
+// Etiqueta de fecha legible. gviz entrega fechas como .f ("8-Jul-26") o .v = "Date(2026,6,8)" (mes base 0)
+function histDateLabel(r) {
+  const cell = (r && r.c && r.c[0]) ? r.c[0] : null;
+  if (!cell) return null;
+  if (cell.f != null && String(cell.f).trim() !== '') return String(cell.f).trim();
+  const v = cell.v;
+  if (v == null) return null;
+  const m = /^Date\((\d+),(\d+),(\d+)/.exec(String(v));
+  if (m) {
+    const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const y = +m[1], mo = +m[2], d = +m[3];   // mo es base 0
+    return d + '-' + (MES[mo] || (mo + 1)) + '-' + String(y).slice(-2);
+  }
+  return String(v);
+}
+
+// Conjunto de tickers vigentes (no vencidos) según la columna B de la pestaña "panel"
+function buildHistActiveSet(panelRes) {
+  const set = new Set();
+  ((panelRes && panelRes.table && panelRes.table.rows) || []).forEach(r => {
+    const t = histCellStr(r, 0);   // columna B es el índice 0 dentro del rango B:B
+    if (t) set.add(t);
+  });
+  return set;
+}
+
+// Los tabs YTM y McD NO comparten exactamente las mismas columnas: se emparejan por TICKER.
+// Además, se restringe al universo vigente del panel (si está disponible).
+function buildHistInstruments(labelRowY, labelRowM, activeSet) {
+  histInstruments = [];
+  const my = histColMap(labelRowY), mm = histColMap(labelRowM);
+  const useFilter = activeSet && activeSet.size > 0;
+  Object.keys(my).forEach(t => {
+    if (useFilter && !activeSet.has(t)) return;   // fuera del panel (vencido / no listado)
+    if (t in mm) histInstruments.push({ ticker: t, section: my[t].section, colY: my[t].col, colM: mm[t].col });
+  });
+}
+
+function sectionsForGroup(label) {
+  const g = HIST_GROUPS.find(x => x.label === label);
+  return g ? g.sections : [];
+}
+
+function populateHistControls() {
+  const catOpts = HIST_GROUPS.map(g => `<option value="${g.label}">${g.label}</option>`).join('');
+  ['A', 'B'].forEach(p => { document.getElementById('cat' + p).innerHTML = catOpts; });
+  const dateOpts = histDates.map(d => `<option value="${d.row}">${d.label}</option>`).join('');
+  ['A1', 'A2', 'B1', 'B2'].forEach(id => {
+    const el = document.getElementById('date' + id);
+    el.innerHTML = dateOpts;
+    el.classList.add(id.endsWith('1') ? 'd1' : 'd2');
+  });
+}
+
+function setDefaultHistDates() {
+  const rowActual = histDates.length ? histDates[0].row : 1;
+  const pick = n => (histDates[Math.min(n, histDates.length - 1)] || histDates[0] || { row: 1 }).row;
+  document.getElementById('catA').value = 'Tasa Fija';
+  document.getElementById('catB').value = 'CER';
+  histState.A.cat = 'Tasa Fija'; histState.B.cat = 'CER';
+  document.getElementById('dateA1').value = rowActual;
+  document.getElementById('dateA2').value = pick(5);    // ~1 semana hábil atrás
+  document.getElementById('dateB1').value = rowActual;
+  document.getElementById('dateB2').value = pick(5);    // ~1 semana hábil atrás
+}
+
+// Asegura que las filas necesarias estén en cache (fetch puntual por fila en ambos tabs)
+async function ensureHistRows(rowsNeeded) {
+  const jobs = [];
+  rowsNeeded.forEach(r => {
+    if (!r) return;
+    [HIST.ytmTab, HIST.mcdTab].forEach(tab => {
+      const key = tab + ':' + r;
+      if (!(key in histCache)) {
+        jobs.push(
+          histFetch(tab, HIST.colFrom + r + ':' + HIST.colTo + r)
+            .then(j => { histCache[key] = (j.table.rows || [])[0] || { c: [] }; })
+            .catch(() => { histCache[key] = { c: [] }; })
+        );
+      }
+    });
+  });
+  if (jobs.length) await Promise.all(jobs);
+}
+
+function histRowVals(tab, row) { return histCache[tab + ':' + row] || { c: [] }; }
+
+// Arma los puntos {ticker, mcd, ytm} de una fecha para la categoría del panel
+function histBuildPts(panel, row) {
+  const secs = sectionsForGroup(histState[panel].cat);
+  const ytmRow = histRowVals(HIST.ytmTab, row);
+  const mcdRow = histRowVals(HIST.mcdTab, row);
+  const out = [];
+  histInstruments.forEach(inst => {
+    if (!secs.includes(inst.section)) return;
+    const y = histCellNum(ytmRow, inst.colY);
+    const x = histCellNum(mcdRow, inst.colM);
+    if (x === null || y === null) return;
+    out.push({ ticker: inst.ticker, mcd: x, ytm: +(y * 100).toFixed(4) });
+  });
+  return out;
+}
+
+async function refreshHistPanel(panel) {
+  const st = histState[panel];
+  st.cat = document.getElementById('cat' + panel).value;
+  st.d1  = +document.getElementById('date' + panel + '1').value;
+  st.d2  = +document.getElementById('date' + panel + '2').value;
+  showHistOverlay(panel, 'loading');
+  await ensureHistRows([st.d1, st.d2]);
+  resizeHistCanvas(panel);
+  redrawHist(panel);
+  populateHistAxisInputs(panel);
+  showHistOverlay(panel, 'hidden');
+}
+
+function onHistDate(panel) { refreshHistPanel(panel); }
+
+// ── Canvas ─────────────────────────────────────────────
+function histCanvas(panel) { return document.getElementById('c' + panel); }
+function resizeHistCanvas(panel) {
+  const cv = histCanvas(panel);
+  const r = cv.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width  = Math.floor(r.width * dpr);  cv.height = Math.floor(r.height * dpr);
+  cv.style.width = Math.floor(r.width) + 'px'; cv.style.height = Math.floor(r.height) + 'px';
+  cv.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function dateLabelForRow(row) {
+  const d = histDates.find(x => x.row === row);
+  return d ? d.label : String(row);
+}
+
+function histAutoRange(pts) {
+  if (!pts.length) return { xLo: 0, xHi: 1, yLo: 0, yHi: 1 };
+  const xs = pts.map(d => d.mcd), ys = pts.map(d => d.ytm);
+  let xlo = Math.min(...xs), xhi = Math.max(...xs), ylo = Math.min(...ys), yhi = Math.max(...ys);
+  const xp = (xhi - xlo) * .10 || .1, yp = (yhi - ylo) * .15 || .5;
+  return { xLo: xlo - xp, xHi: xhi + xp, yLo: ylo - yp, yHi: yhi + yp };
+}
+
+function redrawHist(panel) {
+  const st = histState[panel];
+  st.cat = document.getElementById('cat' + panel).value;
+  st.d1  = +document.getElementById('date' + panel + '1').value;
+  st.d2  = +document.getElementById('date' + panel + '2').value;
+  const cv = histCanvas(panel), ctx = cv.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.width / dpr, H = cv.height / dpr;
+  const tc = themeC();
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = tc.bg; ctx.fillRect(0, 0, W, H);
+
+  const s1 = histBuildPts(panel, st.d1);
+  const s2 = histBuildPts(panel, st.d2);
+  const series = [
+    { pts: s1, row: st.d1, color: HIST_COL1, hollow: false, dash: [] },
+    { pts: s2, row: st.d2, color: HIST_COL2, hollow: true,  dash: [6, 3] },
+  ];
+  st.pts = [];
+  series.forEach((se, si) => se.pts.forEach(p => st.pts.push({ ...p, si, color: se.color, hollow: se.hollow })));
+
+  if (!st.pts.length) {
+    ctx.fillStyle = tc.nodata; ctx.font = '13px -apple-system,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Sin datos para esta categoría / fecha', W / 2, H / 2);
+    drawHistLegend(ctx, series, tc, W);
+    st.sc = null;
+    return;
+  }
+
+  const isEx = t => st.excluded.has(t);
+  const active = st.pts.filter(p => !isEx(p.ticker));
+
+  const PADh = { top: 24, right: 120, bottom: 44, left: 58 };
+  const auto = histAutoRange(active.length ? active : st.pts);
+  const xlo = st.axis.xLo ?? auto.xLo, xhi = st.axis.xHi ?? auto.xHi;
+  const ylo = st.axis.yLo ?? auto.yLo, yhi = st.axis.yHi ?? auto.yHi;
+  const pW = W - PADh.left - PADh.right, pH = H - PADh.top - PADh.bottom;
+  const tx = x => PADh.left + (x - xlo) / (xhi - xlo) * pW;
+  const ty = y => PADh.top + pH - (y - ylo) / (yhi - ylo) * pH;
+
+  const yStep = niceStep(yhi - ylo, 6), yStart = Math.ceil(ylo / yStep) * yStep;
+  ctx.setLineDash([]); ctx.strokeStyle = tc.grid; ctx.lineWidth = 1;
+  ctx.fillStyle = tc.lbl; ctx.font = '12px -apple-system,sans-serif';
+  for (let y = yStart; y <= yhi + yStep * .01; y = +(y + yStep).toFixed(10)) {
+    const py = ty(y);
+    ctx.beginPath(); ctx.moveTo(PADh.left, py); ctx.lineTo(PADh.left + pW, py); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillText(y.toFixed(1) + '%', PADh.left - 5, py + 3.5);
+  }
+  const xStep = niceStep(xhi - xlo, 7), xStart = Math.ceil(xlo / xStep) * xStep;
+  for (let x = xStart; x <= xhi + xStep * .01; x = +(x + xStep).toFixed(10)) {
+    const px = tx(x);
+    ctx.beginPath(); ctx.moveTo(px, PADh.top); ctx.lineTo(px, PADh.top + pH); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillText(x.toFixed(1), px, PADh.top + pH + 15);
+  }
+  ctx.strokeStyle = tc.axis; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PADh.left, PADh.top); ctx.lineTo(PADh.left, PADh.top + pH);
+  ctx.lineTo(PADh.left + pW, PADh.top + pH); ctx.stroke();
+  ctx.fillStyle = tc.lbl; ctx.font = '13px -apple-system,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Modified Duration (McD)', PADh.left + pW / 2, H - 4);
+  ctx.save(); ctx.translate(12, PADh.top + pH / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('YTM (%)', 0, 0); ctx.restore();
+
+  const showL = document.getElementById('chkLabels' + panel).checked;
+  const showC = document.getElementById('chkCurve' + panel).checked;
+
+  // curvas: ajustadas sólo con los puntos NO excluidos de cada serie
+  if (showC) series.forEach(se => {
+    const sp = se.pts.filter(p => !isEx(p.ticker));
+    if (sp.length < 4) return;
+    const sx = sp.map(d => d.mcd), sy = sp.map(d => d.ytm);
+    const xMin = Math.min(...sx), xMax = Math.max(...sx);
+    const fn = makePolyFit(sx, sy, 3);
+    ctx.beginPath(); let pen = false;
+    for (let i = 0; i <= 400; i++) {
+      const x = xMin + (xMax - xMin) * i / 400, y = fn(x);
+      if (y === null) { pen = false; continue; }
+      const px = tx(x), py = ty(y);
+      if (py < PADh.top - 2 || py > PADh.top + pH + 2) { pen = false; continue; }
+      pen ? ctx.lineTo(px, py) : ctx.moveTo(px, py); pen = true;
+    }
+    ctx.setLineDash(se.dash); ctx.strokeStyle = se.color; ctx.lineWidth = 2; ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // puntos: los excluidos se dibujan tenues (gris) y siguen siendo clickeables para reincluir
+  st.pts.forEach((d, i) => {
+    const px = tx(d.mcd), py = ty(d.ytm);
+    if (isEx(d.ticker)) {
+      ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = tc.bg; ctx.fill();
+      ctx.strokeStyle = tc.nodata; ctx.lineWidth = 1; ctx.stroke();
+      return;
+    }
+    const hover = st.hover === i, r = hover ? 7 : 5;
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = d.hollow ? (hover ? d.color + '44' : tc.hollow) : (hover ? d.color : d.color + '55');
+    ctx.fill();
+    ctx.strokeStyle = d.color; ctx.lineWidth = hover ? 2 : 1.5; ctx.stroke();
+  });
+
+  if (showL) {
+    ctx.font = '12px -apple-system,sans-serif'; ctx.fillStyle = tc.dotLbl; ctx.textAlign = 'left';
+    st.pts.forEach((d, i) => { if (isEx(d.ticker) || st.hover === i) return; ctx.fillText(d.ticker, tx(d.mcd) + 7, ty(d.ytm) + 3.5); });
+  }
+
+  st.sc = { tx, ty };
+  drawHistLegend(ctx, series, tc, W);
+}
+
+// Rango auto a partir de puntos activos (para poblar los inputs de ejes)
+function populateHistAxisInputs(panel) {
+  const st = histState[panel];
+  const active = st.pts.filter(p => !st.excluded.has(p.ticker));
+  const auto = histAutoRange(active.length ? active : st.pts);
+  const f = (o, v) => (o != null ? o : v);
+  const set = (suf, val) => { const el = document.getElementById('ax' + panel + suf); if (el) el.value = (val == null ? '' : (+val).toFixed(2)); };
+  set('xlo', f(st.axis.xLo, auto.xLo)); set('xhi', f(st.axis.xHi, auto.xHi));
+  set('ylo', f(st.axis.yLo, auto.yLo)); set('yhi', f(st.axis.yHi, auto.yHi));
+}
+
+function onHistAxis(panel) {
+  const st = histState[panel];
+  const p = suf => { const v = parseFloat(document.getElementById('ax' + panel + suf).value); return isFinite(v) ? v : null; };
+  st.axis = { xLo: p('xlo'), xHi: p('xhi'), yLo: p('ylo'), yHi: p('yhi') };
+  redrawHist(panel);
+}
+
+// Reset: limpia ejes manuales y bonos excluidos
+function resetHistPanel(panel) {
+  const st = histState[panel];
+  st.excluded.clear();
+  st.axis = { xLo: null, xHi: null, yLo: null, yHi: null };
+  redrawHist(panel);
+  populateHistAxisInputs(panel);
+}
+
+// Cambio de categoría: universo distinto -> reinicia exclusiones y ejes
+function onHistCat(panel) {
+  const st = histState[panel];
+  st.excluded.clear();
+  st.axis = { xLo: null, xHi: null, yLo: null, yHi: null };
+  redrawHist(panel);
+  populateHistAxisInputs(panel);
+}
+
+function drawHistLegend(ctx, series, tc, W) {
+  ctx.textAlign = 'left'; ctx.font = '11px -apple-system,sans-serif';
+  let y = 30;
+  series.forEach(se => {
+    const x = W - 112;
+    ctx.beginPath(); ctx.arc(x + 4, y - 4, 5, 0, Math.PI * 2);
+    ctx.fillStyle = se.hollow ? tc.hollow : se.color + '99'; ctx.fill();
+    ctx.strokeStyle = se.color; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = tc.dotLbl; ctx.fillText(dateLabelForRow(se.row), x + 14, y);
+    y += 18;
+  });
+}
+
+// Tooltip para ambos paneles
+['A', 'B'].forEach(panel => {
+  const cv = document.getElementById('c' + panel);
+  cv.addEventListener('mousemove', e => {
+    const st = histState[panel];
+    if (!st.pts.length || !st.sc) return;
+    const rect = cv.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let best = -1, bestD = 14;
+    st.pts.forEach((d, i) => {
+      const dist = Math.hypot(st.sc.tx(d.mcd) - mx, st.sc.ty(d.ytm) - my);
+      if (dist < bestD) { bestD = dist; best = i; }
+    });
+    if (best !== st.hover) { st.hover = best; redrawHist(panel); }
+    if (best >= 0) {
+      const d = st.pts[best];
+      const row = d.si === 0 ? st.d1 : st.d2;
+      tip.innerHTML = `<b>${d.ticker}</b> <span style="opacity:.6;font-size:10px">${dateLabelForRow(row)}</span><br>McD: ${d.mcd.toFixed(2)}<br>YTM: ${d.ytm.toFixed(2)}%`;
+      tip.style.cssText = `display:block; left:${e.clientX + 14}px; top:${e.clientY - 8}px`;
+    } else { tip.style.display = 'none'; }
+  });
+  cv.addEventListener('mouseleave', () => { tip.style.display = 'none'; histState[panel].hover = null; redrawHist(panel); });
+  // Click en un punto: lo saca de la curva (o lo reincluye si ya estaba excluido)
+  cv.addEventListener('click', e => {
+    const st = histState[panel];
+    if (!st.pts.length || !st.sc) return;
+    const rect = cv.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let best = -1, bestD = 12;
+    st.pts.forEach((d, i) => {
+      const dist = Math.hypot(st.sc.tx(d.mcd) - mx, st.sc.ty(d.ytm) - my);
+      if (dist < bestD) { bestD = dist; best = i; }
+    });
+    if (best < 0) return;
+    const tk = st.pts[best].ticker;
+    if (st.excluded.has(tk)) st.excluded.delete(tk); else st.excluded.add(tk);
+    redrawHist(panel);
+    populateHistAxisInputs(panel);
+  });
+});
+
+function showHistOverlay(panel, mode, html) {
+  const el = document.getElementById('overlay' + panel);
+  if (!el) return;
+  if (mode === 'hidden') { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = mode === 'loading'
+    ? '<div class="spinner"></div><div class="overlay-text">Cargando histórico…</div>'
+    : '<div class="error-box">' + html + '</div>';
+}
+
+// Refresh (botón Actualizar / auto): re-fetch de la fila "Actual" y de las fechas visibles
+async function refreshHist() {
+  if (!histInstruments.length) return;
+  delete histCache[HIST.ytmTab + ':1'];
+  delete histCache[HIST.mcdTab + ':1'];
+  const need = new Set();
+  ['A', 'B'].forEach(p => { need.add(histState[p].d1); need.add(histState[p].d2); });
+  await ensureHistRows([...need]);
+  redrawHist('A'); redrawHist('B');
+}
+
+new ResizeObserver(() => { resizeHistCanvas('A'); redrawHist('A'); }).observe(document.getElementById('qAwrap'));
+new ResizeObserver(() => { resizeHistCanvas('B'); redrawHist('B'); }).observe(document.getElementById('qBwrap'));
+
+// ── Auto-refresh cada 3 minutos ────────────────────────
+const AUTO_INTERVAL = 3 * 60 * 1000;
+let countdown = AUTO_INTERVAL / 1000;
+
+setInterval(() => { loadData(); loadFwds(); loadBE(); loadTR(); refreshHist(); }, AUTO_INTERVAL);
+
+setInterval(() => {
+  countdown--;
+  if (countdown <= 0) countdown = AUTO_INTERVAL / 1000;
+  const m = Math.floor(countdown / 60);
+  const s = String(countdown % 60).padStart(2, '0');
+  const el = document.getElementById('autoRefreshTimer');
+  if (el) el.textContent = `↺ ${m}:${s}`;
+}, 1000);
+
+// ── Init ───────────────────────────────────────────────
+loadData();
+loadFwds();
+loadBE();
+loadTR();
+initHist();
+</script>
+</body>
+</html>
+                                                                                                                                                                                                                                                  
